@@ -264,7 +264,17 @@ return sigmoid(output + b2);
 
     // Render'ın programı kapatmasını önleyecek koruma bloğu
     static {
-    Thread worker = new Thread( () -> {
+    private static double predict(double[] input) {
+        double[] hidden = new double[4];
+        for (int i = 0; i < 4; i++) hidden[i] = sigmoid(input[0] * w1[0][i] + input[1] * w1[1][i] + b1[i]);
+        double output = 0;
+        for (int i = 0; i < 4; i++) output += hidden[i] * w2[i];
+        return sigmoid(output + b2);
+    } // predict metodunun kapanışı
+
+    // Render'ın programı kapatmasını önleyecek koruma bloğu
+    static {
+        Thread worker = new Thread( () -> {
             while (true) {
                 try {
                     Thread.sleep(3600000);
@@ -276,4 +286,4 @@ return sigmoid(output + b2);
         worker.setDaemon(false);
         worker.start();
     }
-} // Sınıfın (XorYapayZeka) en son kapanış parantezi               
+} // Sınıfın (XorYapayZeka) en son kapanış parantezi
