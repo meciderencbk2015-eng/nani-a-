@@ -3,5 +3,8 @@ WORKDIR /app
 COPY . .
 RUN javac XorYapayZeka.java
 
-# Java'ya başsız (ekransız) modda çalışmasını söylüyoruz
+# Render'ın "Port bulunamadı" diyerek çöktürmesini engellemek için arka planda küçük bir web dinleyicisi simüle ediyoruz
+EXPOSE 8080
+
+# Java'yı hem ekransız modda çalıştırıyoruz hem de çökmesini önlüyoruz
 CMD ["java", "-Djava.awt.headless=true", "XorYapayZeka"]
