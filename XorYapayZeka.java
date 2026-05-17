@@ -9,7 +9,6 @@ import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
 import java.net.URL;
 import java.net.URLDecoder;
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import com.sun.net.httpserver.HttpServer;
 
@@ -17,73 +16,94 @@ public class XorYapayZeka {
     private static final String HAFIZA_DOSYASI = "beyin.txt";
 
     public static void main(String[] args) {
-        System.out.println("Türkçe Bilgi Motoru Aktif...");
-        // İlk açılışta hafıza boş kalmasın diye temel Türkçe bilgiler yükleyelim
+        System.out.println("Gelişmiş Zeka Köprüsü Aktif...");
         varsayilanBilgileriYukle();
     }
 
-    // İnternetten (DuckDuckGo/Vikipedi altyapısından) doğrudan NET ve TÜRKÇE bilgi çeken metod
-    private static String internettenTurkceBilgiBul(String arananKelime) {
+    // Google Gemini API'sine bağlanıp akıllı cevap üreten metod
+    private static String geminiIletisimMotoru(String kullaniciMesaji) {
         try {
-            // Türkçe karakter uyumluluğu için kelimeyi encode ediyoruz
-            String urlAdresi = "https://html.duckduckgo.com/html/?q=" + URLEncoder.encode(arananKelime + " nedir", "UTF-8");
+            // Render panelinden ayarlayacağımız API anahtarını güvenli şekilde çekiyoruz
+            String apiKey = System.getenv("GEMINI_API_KEY");
+            if (apiKey == null || apiKey.isEmpty()) {
+                return "⚠️ Hata: GEMINI_API_KEY bulunamadı. Lütfen Render panelinden Environment Variable olarak ekleyin.";
+            }
+
+            String urlAdresi = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey;
             URL url = new URL(urlAdresi);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
-            conn.setConnectTimeout(5000);
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+            conn.setDoOutput(true);
 
-            if (conn.getResponseCode() != 200) return null;
+            // Gemini'a karakterini ve ne yapması gerektiğini tembihliyoruz
+            String sistemTalimati = "Sen kullanıcının kendi sunucusunda çalışan, samimi, zeki ve yardımcı bir yapay zeka asistansın. Kısa, net ve akıcı Türkçe cevaplar ver.";
+            
+            // JSON paketini Java'nın standart kütüphanesine uygun şekilde hazırlıyoruz
+            String jsonInputString = "{"
+                + "\"contents\": [{"
+                + "  \"parts\":[{\"text\": \"" + kullaniciMesaji.replace("\"", "\\\"") + "\"}]"
+                + "}], "
+                + "\"systemInstruction\": {"
+                + "  \"parts\":[{\"text\": \"" + sistemTalimati + "\"}]"
+                + "}"
+                + "}";
+
+            try (OutputStream os = conn.getOutputStream()) {
+                byte[] input = jsonInputString.getBytes(StandardCharsets.UTF_8);
+                os.write(input, 0, input.length);
+            }
+
+            int responseCode = conn.getResponseCode();
+            if (responseCode != 200) {
+                return "❌ Yapay zeka sunucusu yanıt vermedi. Hata Kodu: " + responseCode;
+            }
 
             BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
             String satir;
-            StringBuilder icerik = new StringBuilder();
-            
-            // Arama sonuçlarındaki ham metinleri süzüyoruz
+            StringBuilder response = new StringBuilder();
             while ((satir = in.readLine()) != null) {
-                if (satir.contains("result__snippet")) {
-                    // HTML etiketlerini temizleyip saf Türkçe metni alıyoruz
-                    String temizMetin = satir.replaceAll("<[^>]*>", "").trim();
-                    if (temizMetin.length() > 20 && !temizMetin.contains("...")) {
-                        icerik.append(temizMetin);
-                        break; // İlk net tanımı bulduğumuzda duruyoruz
-                    }
-                }
+                response.append(satir);
             }
             in.close();
-            conn.disconnect();
 
-            return icerik.length() > 0 ? icerik.toString() : null;
+            // Gelen JSON verisinden sadece text (cevap) kısmını cımbızla çekiyoruz
+            String rawJson = response.toString();
+            if (rawJson.contains("\"text\": \"")) {
+                String araMetin = rawJson.split("\"text\": \"")[1];
+                String temizCevap = araMetin.split("\"")[0];
+                // Unicode kaçış karakterlerini (\n, \t) temizle
+                temizCevap = temizCevap.replace("\\n", "<br>").replace("\\t", " ");
+                return temizCevap;
+            }
+
+            return "Düşündüm ama tam bir cevap üretemedim.";
         } catch (Exception e) {
-            return null;
+            return "Zeka köprüsü kurulurken bir bağ hatası oluştu: " + e.getMessage();
         }
     }
 
-    // beyin.txt içinde akıllı Türkçe arama yapan motor
-    private static String hafizadaTurkceAra(String arananKelime) {
+    // beyin.txt içinde arama yapan yerel motor
+    private static String hafizadaAra(String arananKelime) {
         try {
             File dosya = new File(HAFIZA_DOSYASI);
             if (!dosya.exists()) return null;
 
             BufferedReader reader = new BufferedReader(new FileReader(dosya, StandardCharsets.UTF_8));
             String satir;
-            StringBuilder bulunanCevaplar = new StringBuilder();
-
             while ((satir = reader.readLine()) != null) {
-                // Büyük-küçük harf duyarlılığını kaldırıp kelime eşleşmesine bakıyoruz
-                if (satir.toLowerCase().contains(arananKelime.toLowerCase())) {
-                    bulunanCevaplar.append("• ").append(satir).append("<br>");
+                if (satir.toLowerCase().contains(arananKelime.toLowerCase()) && satir.contains(":")) {
+                    reader.close();
+                    return satir.split(":")[1].trim();
                 }
             }
             reader.close();
-
-            return bulunanCevaplar.length() > 0 ? bulunanCevaplar.toString() : null;
+            return null;
         } catch (Exception e) {
             return null;
         }
     }
 
-    // Gelen verileri beyin.txt'ye kaydeder
     private static synchronized void hafizayaKaydet(String veri) {
         try {
             File dosya = new File(HAFIZA_DOSYASI);
@@ -96,12 +116,11 @@ public class XorYapayZeka {
         }
     }
 
-    // beyin.txt dosyasındaki her şeyi listeler
     private static synchronized String hafizayiOku() {
         try {
             File dosya = new File(HAFIZA_DOSYASI);
             if (!dosya.exists() || dosya.length() == 0) {
-                return "Hafıza şu an boş. Kelime yazarak beni eğitin!";
+                return "Hafıza şu an boş.";
             }
             BufferedReader reader = new BufferedReader(new FileReader(dosya, StandardCharsets.UTF_8));
             StringBuilder toplamHafiza = new StringBuilder();
@@ -112,7 +131,7 @@ public class XorYapayZeka {
             reader.close();
             return toplamHafiza.toString();
         } catch (Exception e) {
-            return "Hafıza okunurken hata oluştu.";
+            return "Hafıza okuma hatası.";
         }
     }
 
@@ -120,8 +139,7 @@ public class XorYapayZeka {
         File dosya = new File(HAFIZA_DOSYASI);
         if (!dosya.exists() || dosya.length() == 0) {
             hafizayaKaydet("Araba: Genellikle dört tekerlekli, motorlu kara ulaşım aracıdır.");
-            hafizayaKaydet("Yapay Zeka: Bilgisayarların insan gibi düşünmesini ve öğrenmesini sağlayan teknolojidir.");
-            hafizayaKaydet("Java: Dünya genelinde kullanılan, nesne yönelimli, güvenli bir programlama dilidir.");
+            hafizayaKaydet("Proje: Başarıyla sohbet yeteneğine kavuşturulmuş yerli yapay zekadır.");
         }
     }
 
@@ -130,14 +148,14 @@ public class XorYapayZeka {
             int port = Integer.parseInt(System.getenv().getOrDefault("PORT", "8080"));
             HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
 
-            // Web Arayüzü
+            // Arayüz Tanımı
             server.createContext("/", exchange -> {
                 String html = "<!DOCTYPE html>"
                     + "<html lang='tr'>"
                     + "<head>"
                     + "    <meta charset='UTF-8'>"
                     + "    <meta name='viewport' content='width=device-width, initial-scale=1.0'>"
-                    + "    <title>Net Türkçe Yapay Zeka</title>"
+                    + "    <title>Sohbet Eden Akıllı AI</title>"
                     + "    <style>"
                     + "        body { font-family: 'Segoe UI', sans-serif; background-color: #1a1c23; color: #fff; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }"
                     + "        .chat-container { width: 100%; max-width: 650px; background: #222531; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); overflow: hidden; display: flex; flex-direction: column; height: 550px; border: 1px solid #2d3142; }"
@@ -155,15 +173,15 @@ public class XorYapayZeka {
                     + "<body>"
                     + "    <div class='chat-container'>"
                     + "        <div class='chat-header'>"
-                    + "            <span>🤖 Net ve Türkçe Bilgi Motoru</span>"
-                    + "            <button class='hafiza-btn' onclick='hafizayiGoster()'>🧠 Hafızayı Göster</button>"
+                    + "            <span>🚀 Akıllı Sohbet Robotu (Zeka Köprüsü Aktif)</span>"
+                    + "            <button class='hafiza-btn' onclick='hafizayiGoster()'>🧠 Hafıza.txt</button>"
                     + "        </div>"
                     + "        <div class='chat-messages' id='chatBox'>"
-                    + "            <div class='message ai'>Merhaba! Bana öğrenmek istediğin herhangi bir kelimeyi yazabilirsin.<br>Örnek: <code>Araba</code> veya <code>Yapay Zeka</code> yazıp test et!</div>"
+                    + "            <div class='message ai'>Sistem hazır! Artık benimle tıpkı ChatGPT gibi serbestçe sohbet edebilirsin. Naber yazarak başla bakalım!</div>"
                     + "        </div>"
                     + "        <div class='chat-input-area'>"
-                    + "            <input type='text' id='userInput' placeholder='Öğrenmek istediğiniz kelimeyi yazın...' onkeydown='if(event.key===\"Enter\") sendMessage()'>"
-                    + "            <button onclick='sendMessage()'>Sor</button>"
+                    + "            <input type='text' id='userInput' placeholder='Mesajınızı yazın...' onkeydown='if(event.key===\"Enter\") sendMessage()'>"
+                    + "            <button onclick='sendMessage()'>Gönder</button>"
                     + "        </div>"
                     + "    </div>"
                     + "    <script>"
@@ -189,7 +207,7 @@ public class XorYapayZeka {
                     + "                .then(res => res.text())"
                     + "                .then(data => {"
                     + "                    let chatBox = document.getElementById(\"chatBox\");"
-                    + "                    chatBox.innerHTML += `<div class='message ai'>🧠 <b>Tüm Beyin Hafızası:</b><br>${data}</div>`;"
+                    + "                    chatBox.innerHTML += `<div class='message ai'>🧠 <b>Yerel Hafıza Kayıtları:</b><br>${data}</div>`;"
                     + "                    chatBox.scrollTop = chatBox.scrollHeight;"
                     + "                });"
                     + "        }"
@@ -205,10 +223,10 @@ public class XorYapayZeka {
                 os.close();
             });
 
-            // Gelen Mesajı İşleme ve Net Cevap Verme Noktası
+            // Akıllı Karar Odası
             server.createContext("/predict", exchange -> {
                 String query = exchange.getRequestURI().getQuery();
-                String response = "Anlaşılamadı.";
+                String response = "Hata.";
                 
                 if (query != null && query.contains("msg=")) {
                     try {
@@ -217,27 +235,22 @@ public class XorYapayZeka {
                         if (msg.equals("HAFIZA_OKU")) {
                             response = hafizayiOku();
                         } else {
-                            // 1. ADIM: Önce beyin.txt dosyasında bu kelime var mı diye bak
-                            String hafizaSonucu = hafizadaTurkceAra(msg);
+                            // 1. KONTROL: Eğer aranan kelimenin birebir karşılığı beyin.txt'de varsa doğrudan oradan ver
+                            String yerelTanim = hafizadaAra(msg);
                             
-                            if (hafizaSonucu != null) {
-                                response = "🧠 <b>Hafızamda Bulunan Net Bilgi:</b><br>" + hafizaSonucu;
+                            if (yerelTanim != null) {
+                                response = "🧠 <b>[Yerel Hafıza]:</b> " + yerelTanim;
                             } else {
-                                // 2. ADIM: Hafızada yoksa, internete çıkıp Türkçe bilgi ara!
-                                response = "🔍 Bu bilgiyi hafızamda bulamadım, internetten araştırıyorum...<br>";
-                                String internetSonucu = internettenTurkceBilgiBul(msg);
+                                // 2. KONTROL: Kelime hafızada yoksa, arkadaki büyük yapay zeka beynine (Gemini) bağlanıp akıllı cevap al!
+                                String aiCevabi = geminiIletisimMotoru(msg);
+                                response = aiCevabi;
                                 
-                                if (internetSonucu != null) {
-                                    // İnternetten bulduğu net Türkçe tanımı hafızaya kaydet
-                                    hafizayaKaydet(msg + ": " + internetSonucu);
-                                    response = "🌐 <b>İnternetten Yeni Öğrendiğim Türkçe Bilgi:</b><br>• " + internetSonucu;
-                                } else {
-                                    response = "❌ Üzgünüm, bu kelimeye dair internette net bir Türkçe tanım bulamadım. Kendiniz eklemek için kelimeyi ve açıklamasını yazabilirsiniz.";
-                                }
+                                // Gemini'ın ürettiği bu akıllı cevabı da gelecekte kullanmak üzere beyin.txt'ye işle!
+                                hafizayaKaydet(msg + ": " + aiCevabi);
                             }
                         }
                     } catch (Exception e) {
-                        response = "Hata oluştu: Metin işlenemedi.";
+                        response = "İşlem hatası.";
                     }
                 }
 
