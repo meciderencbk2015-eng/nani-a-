@@ -20,7 +20,7 @@ public class XorYapayZeka {
         varsayilanBilgileriYukle();
     }
 
-    // Google Gemini API'sine bağlanıp akıllı cevap üreten güncel metod
+    // Google Gemini API'sine en kararlı yapı ile bağlanan akıllı motor
     private static String geminiIletisimMotoru(String kullaniciMesaji) {
         try {
             String apiKey = System.getenv("GEMINI_API_KEY");
@@ -28,22 +28,24 @@ public class XorYapayZeka {
                 return "⚠️ Hata: GEMINI_API_KEY bulunamadı. Lütfen Render panelinden Environment Variable olarak ekleyin.";
             }
 
-            // 404 Model Not Found hatasını çözmek için evrensel ve en kararlı çalışan güncel API URL'si tanımlandı
-            String urlAdresi = "https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=" + apiKey;
+            // Google'ın güncel ve resmi v1beta endpoint'i kullanılmaktadır
+            String urlAdresi = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey;
             URL url = new URL(urlAdresi);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
             conn.setDoOutput(true);
 
-            // Yapay zekanın karakterini ayarlıyoruz
-            String sistemTalimati = "Sen kullanıcının kendi sunucusunda çalışan, samimi, zeki ve yardımcı bir yapay zeka asistansın. Kısa, net ve akıcı Türkçe cevaplar ver.";
-            String birlesikMesaj = sistemTalimati + " Kullanıcı sana şunu sordu: " + kullaniciMesaji;
+            // Çift tırnak ve yeni satır hatalarını engellemek için metni güvenli hale getiriyoruz
+            String temizMesaj = kullaniciMesaji.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", " ");
 
-            // JSON gövdesi oluşturuluyor (v1 standartlarına tam uyumlu)
+            // Google API standartlarına %100 uyumlu JSON gövdesi
             String jsonInputString = "{"
                 + "\"contents\": [{"
-                + "  \"parts\":[{\"text\": \"" + birlesikMesaj.replace("\"", "\\\"").replace("\n", " ") + "\"}]"
+                + "  \"role\": \"user\","
+                + "  \"parts\": [{"
+                + "    \"text\": \"" + temizMesaj + "\""
+                + "  }]"
                 + "}]"
                 + "}";
 
@@ -74,9 +76,11 @@ public class XorYapayZeka {
 
             String rawJson = response.toString();
             if (rawJson.contains("\"text\": \"")) {
+                // Gelen ham JSON yanıtından cevabı temiz bir şekilde cımbızlıyoruz
                 String araMetin = rawJson.split("\"text\": \"")[1];
                 String temizCevap = araMetin.split("\"")[0];
-                // JSON kaçış karakterlerini arayüze uygun HTML formatına çeviriyoruz
+                
+                // Kaçış karakterlerini düzeltip tarayıcıya uygun HTML formatına alıyoruz
                 temizCevap = temizCevap.replace("\\n", "<br>").replace("\\t", " ").replace("\\\"", "\"");
                 return temizCevap;
             }
@@ -151,7 +155,7 @@ public class XorYapayZeka {
             int port = Integer.parseInt(System.getenv().getOrDefault("PORT", "8080"));
             HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
 
-            // Arayüz Tanımı
+            // Kullanıcı Arayüzü (HTML / CSS / JS)
             server.createContext("/", exchange -> {
                 String html = "<!DOCTYPE html>"
                     + "<html lang='tr'>"
@@ -226,7 +230,7 @@ public class XorYapayZeka {
                 os.close();
             });
 
-            // Akıllı Karar Odası
+            // Arka Plan Karar Alma Yapısı
             server.createContext("/predict", exchange -> {
                 String query = exchange.getRequestURI().getQuery();
                 String response = "Hata.";
