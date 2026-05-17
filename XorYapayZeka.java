@@ -3,17 +3,13 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
-import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import com.sun.net.httpserver.HttpServer;
 
 public class XorYapayZeka {
-    // Yapay zeka sabit ağırlık tanımlamaları
     private static double[][] w1 = { {0.5, 0.2, 0.1, 0.7}, {0.3, 0.8, 0.4, 0.6} };
     private static double[] b1 = {0.1, 0.3, 0.2, 0.5};
     private static double[] w2 = {0.2, 0.6, 0.1, 0.8};
@@ -41,66 +37,33 @@ public class XorYapayZeka {
         return sigmoid(output + b2);
     }
 
-    // İnternetten ham metin verisi çeken metodumuz
-    private static String internettenVeriCek(String urlAdresi) {
-        try {
-            URL url = new URL(urlAdresi);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            conn.setConnectTimeout(5000);
-            conn.setReadTimeout(5000);
-
-            BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
-            StringBuilder icerik = new StringBuilder();
-            String satir;
-            
-            int sayac = 0;
-            while ((satir = in.readLine()) != null && sayac < 5) {
-                icerik.append(satir).append(" ");
-                sayac++;
-            }
-            in.close();
-            conn.disconnect();
-            
-            String temizVeri = icerik.toString().trim();
-            
-            // Çekilen veriyi anında beyin.txt dosyasına kaydet!
-            hafizayaKaydet(temizVeri);
-            
-            return temizVeri;
-        } catch (Exception e) {
-            return "İnternetten veri çekilirken hata oluştu: " + e.getMessage();
-        }
-    }
-
-    // Gelen veriyi beyin.txt dosyasına ekleyen (append) metodumuz
+    // Gönderilen Türkçe metni doğrudan beyin.txt dosyasına kaydeder
     private static synchronized void hafizayaKaydet(String veri) {
         try {
             File dosya = new File(HAFIZA_DOSYASI);
-            // true parametresi verinin üzerine yazmaz, sonuna ekler
             BufferedWriter writer = new BufferedWriter(new FileWriter(dosya, true));
             writer.write(veri);
             writer.newLine();
             writer.close();
-            System.out.println("Veri başarıyla beyin.txt dosyasına işlendi.");
+            System.out.println("Veri basariyla beyin.txt dosyasina islendi.");
         } catch (Exception e) {
-            System.out.println("Hafızaya yazma hatası: " + e.getMessage());
+            System.out.println("Hafizaya yazma hatasi: " + e.getMessage());
         }
     }
 
-    // beyin.txt dosyasında o ana kadar ne biriktiyse okuyan metodumuz
+    // beyin.txt dosyasında biriken her şeyi okur
     private static synchronized String hafizayiOku() {
         try {
             File dosya = new File(HAFIZA_DOSYASI);
-            if (!dosya.exists()) {
-                return "Hafıza henüz boş. İnternetten veri çekerek beyni doldurun!";
+            if (!dosya.exists() || dosya.length() == 0) {
+                return "Hafıza şu an boş. Alttaki kutudan kelimeler yazarak beni eğitin!";
             }
             
             BufferedReader reader = new BufferedReader(new FileReader(dosya));
             StringBuilder toplamHafiza = new StringBuilder();
             String satir;
             while ((satir = reader.readLine()) != null) {
-                toplamHafiza.append(satir).append("<br>");
+                toplamHafiza.append("- ").append(satir).append("<br>");
             }
             reader.close();
             return toplamHafiza.toString();
@@ -109,13 +72,12 @@ public class XorYapayZeka {
         }
     }
 
-    // Render uyumlu Web Sunucusu ve Gelişmiş Chat Arayüzü
     static {
         try {
             int port = Integer.parseInt(System.getenv().getOrDefault("PORT", "8080"));
             HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
 
-            // Ana Sayfa (Görsel Chat Arayüzü)
+            // Chat Arayüzü (HTML & CSS)
             server.createContext("/", exchange -> {
                 String html = "<!DOCTYPE html>"
                     + "<html lang='tr'>"
@@ -135,21 +97,21 @@ public class XorYapayZeka {
                     + "        input { flex: 1; background: #2a2e3f; border: 1px solid #3b4261; padding: 12px; border-radius: 6px; color: #fff; font-size: 14px; outline: none; }"
                     + "        button { background: #4c51bf; border: none; color: #fff; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; }"
                     + "        button:hover { background: #5a67d8; }"
-                    + "        .hafiza-btn { background: #e53e3e; padding: 6px 12px; font-size: 12px; border-radius: 4px; }"
+                    + "        .hafiza-btn { background: #e53e3e; border: none; color: white; padding: 6px 12px; font-size: 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }"
                     + "        .hafiza-btn:hover { background: #c53030; }"
                     + "    </style>"
                     + "</head>"
                     + "<body>"
                     + "    <div class='chat-container'>"
                     + "        <div class='chat-header'>"
-                    + "            <span>🤖 Yapay Zeka (beyin.txt Aktif)</span>"
+                    + "            <span>🤖 Yapay Zeka (Doğrudan Hafıza Sistemi)</span>"
                     + "            <button class='hafiza-btn' onclick='hafizayiGoster()'>🧠 Hafızayı Oku</button>"
                     + "        </div>"
                     + "        <div class='chat-messages' id='chatBox'>"
-                    + "            <div class='message ai'>Sistem ve hafıza dosyası hazır! <br><br><b>Komutlar:</b><br>1. XOR tahmini yap: <code>1 0</code><br>2. İnternetten veri çekip hafızaya kaydet: <code>https://...</code></div>"
+                    + "            <div class='message ai'>Sistem güncellendi! Render engeli kaldırıldı.<br><br><b>Nasıl Kullanılır?</b><br>1. Sayı tahmini için iki sayı girin: <code>1 0</code><br>2. Beyne bilgi öğretmek için direkt cümlenizi yazın (Örn: <code>Araba tekerlekli bir araçtır</code>).</div>"
                     + "        </div>"
                     + "        <div class='chat-input-area'>"
-                    + "            <input type='text' id='userInput' placeholder='Mesajınızı veya linkinizi yazın...' onkeydown='if(event.key===\"Enter\") sendMessage()'>"
+                    + "            <input type='text' id='userInput' placeholder='Sayı girin veya beyne öğreteceğiniz cümleyi yazın...' onkeydown='if(event.key===\"Enter\") sendMessage()'>"
                     + "            <button onclick='sendMessage()'>Gönder</button>"
                     + "        </div>"
                     + "    </div>"
@@ -192,34 +154,33 @@ public class XorYapayZeka {
                 os.close();
             });
 
-            // Gelen İstekleri Ayrıştıran Akıllı Tahmin/Veri Ucu
+            // Gelen İstekleri İşleyen Uç
             server.createContext("/predict", exchange -> {
                 String query = exchange.getRequestURI().getQuery();
-                String response = "Anlaşılmadı.";
+                String response = "Hata oluştu.";
                 
                 if (query != null && query.contains("msg=")) {
                     try {
                         String msg = URLDecoder.decode(query.split("msg=")[1], StandardCharsets.UTF_8.name()).trim();
                         
                         if (msg.equals("HAFIZA_OKU")) {
-                            // Özel buton tetiklendi, beyin.txt dosyasını okuyoruz
                             response = hafizayiOku();
-                        } else if (msg.startsWith("http://") || msg.startsWith("https://")) {
-                            // Kullanıcı link gönderdi, hem internetten çekiyoruz hem beyin.txt'ye yazıyoruz
-                            String cekilen = internettenVeriCek(msg);
-                            response = "<b>Veri Başarıyla Çekildi ve beyin.txt'ye Kaydedildi!</b><br><br><i>İçerik:</i> " + cekilen;
                         } else {
-                            // Kullanıcı normal sayı girdi, XOR tahmini yapıyoruz
                             String[] parts = msg.split("\\s+");
-                            if (parts.length >= 2) {
+                            // Eğer 2 tane sayı girildiyse XOR tahmini yap
+                            if (parts.length == 2 && parts[0].matches("-?\\d+(\\.\\d+)?") && parts[1].matches("-?\\d+(\\.\\d+)?")) {
                                 double in1 = Double.parseDouble(parts[0]);
                                 double in2 = Double.parseDouble(parts[1]);
                                 double result = predict(new double[]{in1, in2});
-                                response = "Girdiler: (" + in1 + ", " + in2 + ") <br>Yapay Zeka XOR Tahmini: <b>" + String.format("%.4f", result) + "</b>";
+                                response = "Girdiler: (" + in1 + ", " + in2 + ") <br>XOR Çıktısı: <b>" + String.format("%.4f", result) + "</b>";
+                            } else {
+                                // Sayı girilmediyse, yazılan metni DOĞRUDAN beyin.txt'ye kaydet!
+                                hafizayaKaydet(msg);
+                                response = "✍️ Yazdığınız bu bilgi başarıyla <b>beyin.txt</b> dosyasına kaydedildi ve hafızaya alındı!";
                             }
                         }
                     } catch (Exception e) {
-                        response = "İşlem sırasında hata oluştu.";
+                        response = "Metin işlenirken bir sorun oluştu.";
                     }
                 }
 
@@ -233,9 +194,9 @@ public class XorYapayZeka {
 
             server.setExecutor(null);
             server.start();
-            System.out.println("Hafıza sistemi " + port + " portunda aktif.");
+            System.out.println("Sunucu aktif.");
         } catch (Exception e) {
-            System.out.println("Sunucu hatası: " + e.getMessage());
+            System.out.println("Hata: " + e.getMessage());
         }
     }
 }
