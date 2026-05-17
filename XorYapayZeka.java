@@ -28,25 +28,23 @@ public class XorYapayZeka {
                 return "⚠️ Hata: GEMINI_API_KEY bulunamadı. Lütfen Render panelinden Environment Variable olarak ekleyin.";
             }
 
-            // 404 hatasını çözmek için en kararlı güncel API adresi ve modeli tanımlandı
-            String urlAdresi = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey;
+            // 404 Model Not Found hatasını çözmek için evrensel ve en kararlı çalışan güncel API URL'si tanımlandı
+            String urlAdresi = "https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=" + apiKey;
             URL url = new URL(urlAdresi);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
             conn.setDoOutput(true);
 
-            // Yapay zekaya kimlik ve sistem talimatı veriliyor
+            // Yapay zekanın karakterini ayarlıyoruz
             String sistemTalimati = "Sen kullanıcının kendi sunucusunda çalışan, samimi, zeki ve yardımcı bir yapay zeka asistansın. Kısa, net ve akıcı Türkçe cevaplar ver.";
-            
-            // JSON gövdesi oluşturuluyor
+            String birlesikMesaj = sistemTalimati + " Kullanıcı sana şunu sordu: " + kullaniciMesaji;
+
+            // JSON gövdesi oluşturuluyor (v1 standartlarına tam uyumlu)
             String jsonInputString = "{"
                 + "\"contents\": [{"
-                + "  \"parts\":[{\"text\": \"" + kullaniciMesaji.replace("\"", "\\\"").replace("\n", " ") + "\"}]"
-                + "}], "
-                + "\"systemInstruction\": {"
-                + "  \"parts\":[{\"text\": \"" + sistemTalimati + "\"}]"
-                + "}"
+                + "  \"parts\":[{\"text\": \"" + birlesikMesaj.replace("\"", "\\\"").replace("\n", " ") + "\"}]"
+                + "}]"
                 + "}";
 
             try (OutputStream os = conn.getOutputStream()) {
@@ -56,7 +54,6 @@ public class XorYapayZeka {
 
             int responseCode = conn.getResponseCode();
             if (responseCode != 200) {
-                // Hata durumunda detaylı bilgi almak için okuma yapıyoruz
                 BufferedReader errIn = new BufferedReader(new InputStreamReader(conn.getErrorStream(), StandardCharsets.UTF_8));
                 String errSatir;
                 StringBuilder errResponse = new StringBuilder();
@@ -79,7 +76,7 @@ public class XorYapayZeka {
             if (rawJson.contains("\"text\": \"")) {
                 String araMetin = rawJson.split("\"text\": \"")[1];
                 String temizCevap = araMetin.split("\"")[0];
-                // Kaçış karakterlerini düzgün HTML satırlarına çeviriyoruz
+                // JSON kaçış karakterlerini arayüze uygun HTML formatına çeviriyoruz
                 temizCevap = temizCevap.replace("\\n", "<br>").replace("\\t", " ").replace("\\\"", "\"");
                 return temizCevap;
             }
@@ -249,7 +246,6 @@ public class XorYapayZeka {
                                 String aiCevabi = geminiIletisimMotoru(msg);
                                 response = aiCevabi;
                                 
-                                // Hata mesajlarını hafızaya kaydetmemek için kontrol koyduk
                                 if(!aiCevabi.startsWith("❌") && !aiCevabi.startsWith("⚠️")) {
                                     hafizayaKaydet(msg + ": " + aiCevabi);
                                 }
