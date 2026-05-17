@@ -183,9 +183,9 @@ public class XorYapayZeka {
             int port = Integer.parseInt(System.getenv().getOrDefault("PORT", "8080"));
             HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
 
-            // HTML Web Arayüzü
+            // Tırnak çakışmaları tamamen giderilmiş kararlı HTML Arayüzü
             server.createContext("/", exchange -> {
-                String html = "<!DOCTYPE html><html lang='tr'><head><meta charset='UTF-8'>"
+                String html = "<!DOCTYPE html><html lang=\"tr\"><head><meta charset=\"UTF-8\">"
                     + "<title>Yapay Zeka Bilgi Motoru</title>"
                     + "<style>"
                     + "body { font-family: 'Segoe UI', sans-serif; background-color: #1a1c23; color: #fff; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }"
@@ -200,28 +200,35 @@ public class XorYapayZeka {
                     + "button { background: #4c51bf; border: none; color: #fff; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; }"
                     + ".hafiza-btn { background: #e53e3e; border: none; color: white; padding: 6px 12px; font-size: 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }"
                     + "</style></head><body>"
-                    + "<div class='chat-container'>"
-                    + "  <div class='chat-header'><span>🤖 Akıllı Filtreli Yapay Zeka</span><button class='hafiza-btn' onclick='hafizayiGoster()'>🧠 Hafızayı Oku</button></div>"
-                    + "  <div class='chat-messages' id='chatBox'>"
-                    + "    <div class='message ai'>Sistem güncellendi! Artık normal sohbetler hafızayı kirletmez.<br><br><b>Öğretmek için:</b> 'Kelime: Açıklama' veya '... nedir?' şeklinde yazabilirsiniz.</div>"
+                    + "<div class=\"chat-container\">"
+                    + "  <div class=\"chat-header\"><span>🤖 Akıllı Filtreli Yapay Zeka</span><button class=\"hafiza-btn\" onclick=\"hafizayiGoster()\">🧠 Hafızayı Oku</button></div>"
+                    + "  <div class=\"chat-messages\" id=\"chatBox\">"
+                    + "    <div class=\"message ai\">Sistem başarıyla güncellendi! Artık normal sohbetler hafızayı kirletmeyecek.<br><br><b>Öğretmek için kurallar:</b><br>1. Kelime tanımlama: 'Kelime: Açıklama'<br>2. Soru sorma: 'Bulut nedir?'<br>Geri kalan düz kelimeler serbest sohbet kabul edilir.</div>"
                     + "  </div>"
-                    + "  <div class='chat-input-area'>"
-                    + "    <input type='text' id='userInput' placeholder='Cümle yazın, link yapıştırın veya sayı girin...' onkeydown='if(event.key===\"Enter\") sendMessage()'>"
-                    + "    <button onclick='sendMessage()'>Gönder</button>"
+                    + "  <div class=\"chat-input-area\">"
+                    + "    <input type=\"text\" id=\"userInput\" placeholder=\"Cümle yazın, link yapıştırın veya sayı girin...\" onkeydown=\"if(event.key==='Enter') sendMessage()\">"
+                    + "    <button onclick=\"sendMessage()\">Gönder</button>"
                     + "  </div>"
                     + "</div>"
                     + "<script>"
                     + "function sendMessage() {"
-                    + "  let input = document.getElementById('userInput'); let text = input.value.trim(); if(!text) return;"
-                    + "  let chatBox = document.getElementById('chatBox'); chatBox.innerHTML += `<div class='message user'>${text}</div>`;"
-                    + "  input.value = ''; chatBox.scrollTop = chatBox.scrollHeight;"
-                    + "  fetch('/predict?msg=' + encodeURIComponent(text)).then(res => res.text()).then(data => {"
-                    + "    chatBox.innerHTML += `<div class='message ai'>${data}</div>`; chatBox.scrollTop = chatBox.scrollHeight;"
+                    + "  var input = document.getElementById('userInput');"
+                    + "  var text = input.value.trim();"
+                    + "  if(!text) return;"
+                    + "  var chatBox = document.getElementById('chatBox');"
+                    + "  chatBox.innerHTML += '<div class=\"message user\">' + text + '</div>';"
+                    + "  input.value = '';"
+                    + "  chatBox.scrollTop = chatBox.scrollHeight;"
+                    + "  fetch('/predict?msg=' + encodeURIComponent(text)).then(function(res){ return res.text(); }).then(function(data) {"
+                    + "    chatBox.innerHTML += '<div class=\"message ai\">' + data + '</div>';"
+                    + "    chatBox.scrollTop = chatBox.scrollHeight;"
                     + "  });"
                     + "}"
                     + "function hafizayiGoster() {"
-                    + "  fetch('/predict?msg=HAFIZA_OKU').then(res => res.text()).then(data => {"
-                    + "    let chatBox = document.getElementById('chatBox'); chatBox.innerHTML += `<div class='message ai'>🧠 <b>Hafıza Kayıtları:</b><br>${data}</div>`; chatBox.scrollTop = chatBox.scrollHeight;"
+                    + "  fetch('/predict?msg=HAFIZA_OKU').then(function(res){ return res.text(); }).then(function(data) {"
+                    + "    var chatBox = document.getElementById('chatBox');"
+                    + "    chatBox.innerHTML += '<div class=\"message ai\">🧠 <b>Hafıza Kayıtları:</b><br>' + data + '</div>';"
+                    + "    chatBox.scrollTop = chatBox.scrollHeight;"
                     + "  });"
                     + "}"
                     + "</script></body></html>";
@@ -233,7 +240,7 @@ public class XorYapayZeka {
                 exchange.getResponseBody().close();
             });
 
-            // Akıllı Karar Dağıtım Merkezi
+            // Akıllı Filtreleme Odası
             server.createContext("/predict", exchange -> {
                 String query = exchange.getRequestURI().getQuery();
                 String response = "Hata.";
@@ -245,7 +252,7 @@ public class XorYapayZeka {
                         if (msg.equals("HAFIZA_OKU")) {
                             response = hafizayiOku();
                         }
-                        // 1. FİLTRE: İnternet Linki mi?
+                        // 1. FİLTRE: İnternet Linkleri
                         else if (msg.startsWith("http://") || msg.startsWith("https://")) {
                             String cekilen = internettenVeriCek(msg);
                             if (cekilen.startsWith("❌")) {
@@ -255,17 +262,17 @@ public class XorYapayZeka {
                                 hafizayaKaydet("[Internet] (" + msg + "): " + cekilen);
                             }
                         }
-                        // 2. FİLTRE: XOR Sayı Tahmini mi?
+                        // 2. FİLTRE: XOR Sayı Tahmin Motoru
                         else if (Pattern.matches("\\d+", msg)) {
                             int sayi = Integer.parseInt(msg);
                             response = "🔢 <b>[XOR Tahmini]:</b> Girdi: " + sayi + " ➡️ Çıktı: " + (sayi ^ 1);
                         }
-                        // 3. FİLTRE: Kullanıcı Yeni Bir Bilgi mi Öğretiyor? (Örn: "Kalem: Yazı yazma aracı" veya "Ev nedir?")
+                        // 3. FİLTRE: Sadece Bilgi Öğretme İstekleri Kaydedilsin
                         else if (msg.contains(":") || msg.toLowerCase().endsWith("nedir") || msg.toLowerCase().endsWith("nedir?")) {
                             response = "💾 <b>[Yeni Bilgi Hafızaya Kaydedildi]:</b> " + msg;
                             hafizayaKaydet(msg);
                         }
-                        // 4. FİLTRE: Normal Sohbet (Naber, nasılsın vb.) -> Önce hafızaya bak, yoksa Gemini'ye sor (ASLA KAYDETME)
+                        // 4. FİLTRE: Serbest Sohbetler (Naber, nasılsın vb.) -> Asla hafızaya kaydedilmez!
                         else {
                             String yerelBilgi = hafizadaAra(msg);
                             if (yerelBilgi != null) {
@@ -274,4 +281,22 @@ public class XorYapayZeka {
                                 response = geminiIletisimMotoru(msg);
                             }
                         }
-                    } catch
+                    } catch (Exception e) {
+                        response = "Hata: " + e.getMessage();
+                    }
+                }
+
+                byte[] responseBytes = response.getBytes(StandardCharsets.UTF_8);
+                exchange.getResponseHeaders().set("Content-Type", "text/html; charset=UTF-8");
+                exchange.sendResponseHeaders(200, responseBytes.length);
+                exchange.getResponseBody().write(responseBytes);
+                exchange.getResponseBody().close();
+            });
+
+            server.setExecutor(null);
+            server.start();
+        } catch (Exception e) {
+            System.out.println("Başlatma Hatası: " + e.getMessage());
+        }
+    }
+}
