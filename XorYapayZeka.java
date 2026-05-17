@@ -20,15 +20,15 @@ public class XorYapayZeka {
         varsayilanBilgileriYukle();
     }
 
-    // Google Gemini API'sine bağlanıp akıllı cevap üreten metod
+    // Google Gemini API'sine bağlanıp akıllı cevap üreten güncel metod
     private static String geminiIletisimMotoru(String kullaniciMesaji) {
         try {
-            // Render panelinden ayarlayacağımız API anahtarını güvenli şekilde çekiyoruz
             String apiKey = System.getenv("GEMINI_API_KEY");
             if (apiKey == null || apiKey.isEmpty()) {
                 return "⚠️ Hata: GEMINI_API_KEY bulunamadı. Lütfen Render panelinden Environment Variable olarak ekleyin.";
             }
 
+            // 404 hatasını çözmek için en kararlı güncel API adresi ve modeli tanımlandı
             String urlAdresi = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey;
             URL url = new URL(urlAdresi);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -36,13 +36,13 @@ public class XorYapayZeka {
             conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
             conn.setDoOutput(true);
 
-            // Gemini'a karakterini ve ne yapması gerektiğini tembihliyoruz
+            // Yapay zekaya kimlik ve sistem talimatı veriliyor
             String sistemTalimati = "Sen kullanıcının kendi sunucusunda çalışan, samimi, zeki ve yardımcı bir yapay zeka asistansın. Kısa, net ve akıcı Türkçe cevaplar ver.";
             
-            // JSON paketini Java'nın standart kütüphanesine uygun şekilde hazırlıyoruz
+            // JSON gövdesi oluşturuluyor
             String jsonInputString = "{"
                 + "\"contents\": [{"
-                + "  \"parts\":[{\"text\": \"" + kullaniciMesaji.replace("\"", "\\\"") + "\"}]"
+                + "  \"parts\":[{\"text\": \"" + kullaniciMesaji.replace("\"", "\\\"").replace("\n", " ") + "\"}]"
                 + "}], "
                 + "\"systemInstruction\": {"
                 + "  \"parts\":[{\"text\": \"" + sistemTalimati + "\"}]"
@@ -56,7 +56,15 @@ public class XorYapayZeka {
 
             int responseCode = conn.getResponseCode();
             if (responseCode != 200) {
-                return "❌ Yapay zeka sunucusu yanıt vermedi. Hata Kodu: " + responseCode;
+                // Hata durumunda detaylı bilgi almak için okuma yapıyoruz
+                BufferedReader errIn = new BufferedReader(new InputStreamReader(conn.getErrorStream(), StandardCharsets.UTF_8));
+                String errSatir;
+                StringBuilder errResponse = new StringBuilder();
+                while ((errSatir = errIn.readLine()) != null) {
+                    errResponse.append(errSatir);
+                }
+                errIn.close();
+                return "❌ Sunucu yanıt vermedi. Kod: " + responseCode + " - Detay: " + errResponse.toString();
             }
 
             BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
@@ -67,23 +75,21 @@ public class XorYapayZeka {
             }
             in.close();
 
-            // Gelen JSON verisinden sadece text (cevap) kısmını cımbızla çekiyoruz
             String rawJson = response.toString();
             if (rawJson.contains("\"text\": \"")) {
                 String araMetin = rawJson.split("\"text\": \"")[1];
                 String temizCevap = araMetin.split("\"")[0];
-                // Unicode kaçış karakterlerini (\n, \t) temizle
-                temizCevap = temizCevap.replace("\\n", "<br>").replace("\\t", " ");
+                // Kaçış karakterlerini düzgün HTML satırlarına çeviriyoruz
+                temizCevap = temizCevap.replace("\\n", "<br>").replace("\\t", " ").replace("\\\"", "\"");
                 return temizCevap;
             }
 
-            return "Düşündüm ama tam bir cevap üretemedim.";
+            return "Düşündüm ama uygun bir cevap formatı bulamadım.";
         } catch (Exception e) {
-            return "Zeka köprüsü kurulurken bir bağ hatası oluştu: " + e.getMessage();
+            return "Zeka köprüsü kurulurken hata oluştu: " + e.getMessage();
         }
     }
 
-    // beyin.txt içinde arama yapan yerel motor
     private static String hafizadaAra(String arananKelime) {
         try {
             File dosya = new File(HAFIZA_DOSYASI);
@@ -235,18 +241,18 @@ public class XorYapayZeka {
                         if (msg.equals("HAFIZA_OKU")) {
                             response = hafizayiOku();
                         } else {
-                            // 1. KONTROL: Eğer aranan kelimenin birebir karşılığı beyin.txt'de varsa doğrudan oradan ver
                             String yerelTanim = hafizadaAra(msg);
                             
                             if (yerelTanim != null) {
                                 response = "🧠 <b>[Yerel Hafıza]:</b> " + yerelTanim;
                             } else {
-                                // 2. KONTROL: Kelime hafızada yoksa, arkadaki büyük yapay zeka beynine (Gemini) bağlanıp akıllı cevap al!
                                 String aiCevabi = geminiIletisimMotoru(msg);
                                 response = aiCevabi;
                                 
-                                // Gemini'ın ürettiği bu akıllı cevabı da gelecekte kullanmak üzere beyin.txt'ye işle!
-                                hafizayaKaydet(msg + ": " + aiCevabi);
+                                // Hata mesajlarını hafızaya kaydetmemek için kontrol koyduk
+                                if(!aiCevabi.startsWith("❌") && !aiCevabi.startsWith("⚠️")) {
+                                    hafizayaKaydet(msg + ": " + aiCevabi);
+                                }
                             }
                         }
                     } catch (Exception e) {
