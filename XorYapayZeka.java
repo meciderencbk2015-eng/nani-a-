@@ -17,7 +17,7 @@ public class XorYapayZeka {
     private static final String HAFIZA_DOSYASI = "beyin.txt";
 
     public static void main(String[] args) {
-        System.out.println("Gelişmiş Filtreli Zeka Köprüsü Aktif...");
+        System.out.println("Yapay Zeka Sistemi Aktif Ediliyor...");
         varsayilanBilgileriYukle();
     }
 
@@ -183,7 +183,7 @@ public class XorYapayZeka {
             int port = Integer.parseInt(System.getenv().getOrDefault("PORT", "8080"));
             HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
 
-            // Tırnak çakışmaları tamamen giderilmiş kararlı HTML Arayüzü
+            // Çakışmasız, tamamen optimize edilmiş HTML Arayüzü
             server.createContext("/", exchange -> {
                 String html = "<!DOCTYPE html><html lang=\"tr\"><head><meta charset=\"UTF-8\">"
                     + "<title>Yapay Zeka Bilgi Motoru</title>"
@@ -240,7 +240,7 @@ public class XorYapayZeka {
                 exchange.getResponseBody().close();
             });
 
-            // Akıllı Filtreleme Odası
+            // Akıllı Filtreleme ve Karar Odası
             server.createContext("/predict", exchange -> {
                 String query = exchange.getRequestURI().getQuery();
                 String response = "Hata.";
@@ -252,51 +252,10 @@ public class XorYapayZeka {
                         if (msg.equals("HAFIZA_OKU")) {
                             response = hafizayiOku();
                         }
-                        // 1. FİLTRE: İnternet Linkleri
+                        // FİLTRE 1: İnternet Bağlantısı
                         else if (msg.startsWith("http://") || msg.startsWith("https://")) {
                             String cekilen = internettenVeriCek(msg);
                             if (cekilen.startsWith("❌")) {
                                 response = cekilen;
                             } else {
-                                response = "🌐 <b>İnternet Verisi Hafızaya Alındı:</b><br>" + cekilen;
-                                hafizayaKaydet("[Internet] (" + msg + "): " + cekilen);
-                            }
-                        }
-                        // 2. FİLTRE: XOR Sayı Tahmin Motoru
-                        else if (Pattern.matches("\\d+", msg)) {
-                            int sayi = Integer.parseInt(msg);
-                            response = "🔢 <b>[XOR Tahmini]:</b> Girdi: " + sayi + " ➡️ Çıktı: " + (sayi ^ 1);
-                        }
-                        // 3. FİLTRE: Sadece Bilgi Öğretme İstekleri Kaydedilsin
-                        else if (msg.contains(":") || msg.toLowerCase().endsWith("nedir") || msg.toLowerCase().endsWith("nedir?")) {
-                            response = "💾 <b>[Yeni Bilgi Hafızaya Kaydedildi]:</b> " + msg;
-                            hafizayaKaydet(msg);
-                        }
-                        // 4. FİLTRE: Serbest Sohbetler (Naber, nasılsın vb.) -> Asla hafızaya kaydedilmez!
-                        else {
-                            String yerelBilgi = hafizadaAra(msg);
-                            if (yerelBilgi != null) {
-                                response = "🧠 <b>[Hafızamdan]:</b> " + yerelBilgi;
-                            } else {
-                                response = geminiIletisimMotoru(msg);
-                            }
-                        }
-                    } catch (Exception e) {
-                        response = "Hata: " + e.getMessage();
-                    }
-                }
-
-                byte[] responseBytes = response.getBytes(StandardCharsets.UTF_8);
-                exchange.getResponseHeaders().set("Content-Type", "text/html; charset=UTF-8");
-                exchange.sendResponseHeaders(200, responseBytes.length);
-                exchange.getResponseBody().write(responseBytes);
-                exchange.getResponseBody().close();
-            });
-
-            server.setExecutor(null);
-            server.start();
-        } catch (Exception e) {
-            System.out.println("Başlatma Hatası: " + e.getMessage());
-        }
-    }
-}
+                                response = "🌐 <b>İn
