@@ -17,8 +17,9 @@ public class XorYapayZeka {
     private static final String HAFIZA_DOSYASI = "beyin.txt";
 
     public static void main(String[] args) {
-        System.out.println("Yapay Zeka Sistemi Aktif Ediliyor...");
+        System.out.println("Yapay Zeka Sistemi Başlatılıyor...");
         varsayilanBilgileriYukle();
+        sunucuyuBaslat();
     }
 
     private static String geminiIletisimMotoru(String kullaniciMesaji) {
@@ -178,12 +179,12 @@ public class XorYapayZeka {
         }
     }
 
-    static {
+    private static void sunucuyuBaslat() {
         try {
             int port = Integer.parseInt(System.getenv().getOrDefault("PORT", "8080"));
             HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
 
-            // Çakışmasız, tamamen optimize edilmiş HTML Arayüzü
+            // HTML Web Arayüzü
             server.createContext("/", exchange -> {
                 String html = "<!DOCTYPE html><html lang=\"tr\"><head><meta charset=\"UTF-8\">"
                     + "<title>Yapay Zeka Bilgi Motoru</title>"
@@ -237,25 +238,4 @@ public class XorYapayZeka {
                 exchange.getResponseHeaders().set("Content-Type", "text/html; charset=UTF-8");
                 exchange.sendResponseHeaders(200, responseBytes.length);
                 exchange.getResponseBody().write(responseBytes);
-                exchange.getResponseBody().close();
-            });
-
-            // Akıllı Filtreleme ve Karar Odası
-            server.createContext("/predict", exchange -> {
-                String query = exchange.getRequestURI().getQuery();
-                String response = "Hata.";
-
-                if (query != null && query.contains("msg=")) {
-                    try {
-                        String msg = URLDecoder.decode(query.split("msg=")[1], StandardCharsets.UTF_8.name()).trim();
-
-                        if (msg.equals("HAFIZA_OKU")) {
-                            response = hafizayiOku();
-                        }
-                        // FİLTRE 1: İnternet Bağlantısı
-                        else if (msg.startsWith("http://") || msg.startsWith("https://")) {
-                            String cekilen = internettenVeriCek(msg);
-                            if (cekilen.startsWith("❌")) {
-                                response = cekilen;
-                            } else {
-                                response = "🌐 <b>İn
+                exchange.getResponseBody().close
